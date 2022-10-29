@@ -2,9 +2,9 @@ package main
 
 import (
 	"context"
-	"godriver/gomgo"
 	"time"
 
+	"github.com/terena-info/terena.godriver/gomgo"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
 )
 

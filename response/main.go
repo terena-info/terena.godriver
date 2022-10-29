@@ -39,12 +39,12 @@ func (r Response) Json(h H) {
 	r.Ctx.JSON(http.StatusOK, h)
 }
 
-func (r Response) Panic(httpStatusCode int, h HErr) {
+func (r Response) Panic(statusCode int, h HErr) {
 	if h.Message == "" {
 		h.Message = "Request failed"
 	}
 	if h.ErrorCode == "" {
 		h.ErrorCode = "4000"
 	}
-	panic(fmt.Sprintf("%s-%s::%s", strconv.Itoa(httpStatusCode), h.ErrorCode, h.Message))
+	panic(fmt.Sprintf("%s-%s::%s", strconv.Itoa(statusCode), h.ErrorCode, h.Message))
 }

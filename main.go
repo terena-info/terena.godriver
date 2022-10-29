@@ -2,10 +2,11 @@ package main
 
 import (
 	"context"
+
 	"fmt"
-	"godriver/gomgo"
 	"time"
 
+	"github.com/terena-info/terena.godriver/gomgo"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
 )
 

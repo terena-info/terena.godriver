@@ -3,10 +3,11 @@ package main
 import (
 	"context"
 
-	"fmt"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/terena-info/terena.godriver/gomgo"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
 )
 
@@ -44,27 +45,39 @@ func main() {
 
 	// userId, _ := primitive.ObjectIDFromHex("6247c4389bf13408f7cfcc99")
 
-	query := gomgo.New(context.TODO(), "order")
-
 	// var user []User
 	// query.FindById(userId).Decode(&user).ErrorMessage("400::validate_user_id")
+	app := gin.Default()
 
-	var orders []map[string]interface{}
+	app.GET("/", func(ctx *gin.Context) {
+		query := gomgo.New(context.TODO(), "order")
 
-	query.Lookup(&gomgo.LookupOption{
-		From:         "payment_method",
-		LocalField:   "payment_method_id",
-		ForeignField: "_id",
-		As:           "payment_method_id",
-	}).Lookup(&gomgo.LookupOption{
-		From:         "order_status",
-		LocalField:   "order_status_id",
-		ForeignField: "_id",
-		As:           "order_status_id",
-	}).Select(
-		"order_number",
-		"payment_method_id",
-	).Decode(&orders)
+		var orders []bson.M
+		query.Lookup(&gomgo.LookupOption{
+			From:         "payment_method",
+			LocalField:   "payment_method_id",
+			ForeignField: "_id",
+			As:           "payment_method_id",
+		}).Lookup(&gomgo.LookupOption{
+			From:         "order_status",
+			LocalField:   "order_status_id",
+			ForeignField: "_id",
+			As:           "order_status_id",
+		}).AddPipeline(bson.M{
+			"$lookup": bson.M{
+				"from":         "seller",
+				"localField":   "seller_id",
+				"foreignField": "_id",
+				"as":           "seller_id",
+			},
+		}).Unwind(&gomgo.UnwindOption{Path: "seller_id"}).AutoBindQuery(&gomgo.BindConfig{
+			Context:       ctx,
+			SearchFields:  []string{"order_number"},
+			ForcePaginate: true,
+		}).Select("order_number", "is_offline_order").Decode(&orders)
 
-	fmt.Println(orders[0]["order_number"])
+		ctx.JSON(200, orders[0])
+	})
+
+	app.Run(":9009")
 }

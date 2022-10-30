@@ -31,7 +31,7 @@ type LookupOption struct {
 	Many         bool
 }
 
-type _OrmInterface interface {
+type OrmInterface interface {
 	FindById(primitive.ObjectID) _OrmChain
 	Decode(interface{}) _OrmChain
 	ErrorMessage(string)
@@ -371,11 +371,11 @@ func (chain _OrmChain) Decode(output interface{}) _OrmChain {
 	return chain
 }
 
-func New(ctx context.Context, model string) _OrmInterface {
-	var orm _OrmInterface = _OrmChain{
+func New(ctx context.Context, model string) *OrmInterface {
+	var orm OrmInterface = _OrmChain{
 		Model:    model,
 		Context:  ctx,
 		instance: MongoInstance.Collection(model),
 	}
-	return orm
+	return &orm
 }

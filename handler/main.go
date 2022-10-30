@@ -30,7 +30,8 @@ func SessionHandler(handler func(HandlerContext), DBClient *mongo.Client) gin.Ha
 		handlerOption := HandlerContext{Context: ctx}
 		session, err := DBClient.StartSession()
 		if err != nil {
-			res.Panic(http.StatusInternalServerError, response.HErr{Message: err.Error(), ErrorCode: "5000"})
+			res.Status(http.StatusInternalServerError)
+			res.Panic(response.HErr{Message: err.Error(), ErrorCode: "5000"})
 		}
 		defer session.EndSession(context.Background())
 		session.WithTransaction(context.Background(), func(sessCtx mongo.SessionContext) (interface{}, error) {

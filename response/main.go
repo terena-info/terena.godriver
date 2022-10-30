@@ -20,16 +20,35 @@ type HErr struct {
 
 type ResponseInterface interface {
 	Json(H)
-	Panic(int, HErr)
+	Panic(HErr)
+	Status(int) Response
+	SetHeader(string, string) Response
+	SetCookie(string, string) Response
 }
 
 type Response struct {
-	Ctx *gin.Context
+	Ctx        *gin.Context
+	statusCode int
 }
 
 func New(ctx *gin.Context) ResponseInterface {
-	var response ResponseInterface = Response{Ctx: ctx}
+	var response ResponseInterface = Response{Ctx: ctx, statusCode: http.StatusOK}
 	return response
+}
+
+func (r Response) SetHeader(key string, value string) Response {
+	r.Ctx.Header(key, value)
+	return r
+}
+
+func (r Response) SetCookie(key string, value string) Response {
+	r.Ctx.Header(key, value)
+	return r
+}
+
+func (r Response) Status(statusCode int) Response {
+	r.statusCode = statusCode
+	return r
 }
 
 func (r Response) Json(h H) {
@@ -39,12 +58,12 @@ func (r Response) Json(h H) {
 	r.Ctx.JSON(http.StatusOK, h)
 }
 
-func (r Response) Panic(statusCode int, h HErr) {
+func (r Response) Panic(h HErr) {
 	if h.Message == "" {
 		h.Message = "Request failed"
 	}
 	if h.ErrorCode == "" {
 		h.ErrorCode = "4000"
 	}
-	panic(fmt.Sprintf("%s-%s::%s", strconv.Itoa(statusCode), h.ErrorCode, h.Message))
+	panic(fmt.Sprintf("%s-%s::%s", strconv.Itoa(r.statusCode), h.ErrorCode, h.Message))
 }

@@ -1,56 +1,43 @@
 package main
 
 import (
-	"fmt"
+	"github.com/gin-gonic/gin"
+	"github.com/terena-info/terena.godriver/binding"
+	"github.com/terena-info/terena.godriver/middlewares"
+	"github.com/terena-info/terena.godriver/response"
 )
 
+type PaymenMethod struct {
+	Title    string `validate:"required" form:"title" json:"title" bson:"title"`
+	UserId   string `validate:"objectId" form:"user_id" json:"user_id" bson:"user_id"`
+	Time     string `validate:"date" form:"time" json:"time" bson:"time"`
+	DateTime string `validate:"datetime" form:"datetime" json:"datetime" bson:"datetime"`
+}
+
+func SanitizeRequest() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		ctx.Next()
+	}
+}
+
 func main() {
-	Engine(&Person{})
-	Engine(&Order{})
+	app := gin.Default()
 
-	// Output
-	// *Person.BeforeSave
-	// Save person data
-	// *Person.AfterSave
-	// Save order data
+	app.Use(gin.CustomRecovery(middlewares.ErrorRecovery))
+
+	app.Use(SanitizeRequest())
+
+	app.POST("/", func(ctx *gin.Context) {
+		res := response.New(ctx)
+
+		var admin PaymenMethod
+		ctx.ShouldBind(&admin)
+
+		validate := binding.New(admin)
+		validate.ValidateStruct().RunError(&binding.RunErrorOption{})
+
+		res.Json(response.H{})
+	})
+
+	app.Run(":9009")
 }
-
-func Engine(valPtr interface{}) error {
-	if v, ok := valPtr.(interface{ BeforeSave() }); ok {
-		v.BeforeSave()
-	}
-	if v, ok := valPtr.(interface{ Save() }); ok {
-		v.Save()
-	}
-	if v, ok := valPtr.(interface{ AfterSave() }); ok {
-		v.AfterSave()
-	}
-	return nil
-}
-
-type Person struct {
-	FirstName string
-	LastName  string
-}
-
-func (p *Person) Save() {
-	// call beforeSave()
-	fmt.Println("Save person data")
-	// call afterSave()
-}
-func (p *Person) BeforeSave() { fmt.Println("*Person.BeforeSave") }
-func (p *Person) AfterSave()  { fmt.Println("*Person.AfterSave") }
-
-type Order struct {
-	Number ObjectId
-	Items  []Item
-}
-
-func (o *Order) Save() {
-	// call beforeSave()
-	fmt.Println("Save order data")
-	// call afterSave()
-}
-
-type Item struct{}     // for demonstration purpose
-type ObjectId struct{} // for demonstration purpose

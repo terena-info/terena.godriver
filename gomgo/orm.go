@@ -371,11 +371,11 @@ func (chain _OrmChain) Decode(output interface{}) _OrmChain {
 	return chain
 }
 
-func New(ctx context.Context, model string) *OrmInterface {
+func New(ctx context.Context, model string) OrmInterface {
 	var orm OrmInterface = _OrmChain{
 		Model:    model,
 		Context:  ctx,
 		instance: MongoInstance.Collection(model),
 	}
-	return &orm
+	return orm
 }

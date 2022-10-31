@@ -57,7 +57,7 @@ type _OrmChain struct {
 	Model          string
 	Context        context.Context
 	errors         error
-	instance       *mongo.Collection
+	Instance       *mongo.Collection
 	autoBindQuery  bool
 	autoBindResult _AutoBindResult
 	projections    []string
@@ -174,13 +174,13 @@ func (chain _OrmChain) CreateIndex(key string, value int) func() {
 		Keys: bson.M{key: value},
 	}
 
-	_, err := chain.instance.Indexes().CreateOne(chain.Context, indexModel) // Create Index
+	_, err := chain.Instance.Indexes().CreateOne(chain.Context, indexModel) // Create Index
 	if err != nil {
 		panic(err)
 	}
 
 	return func() { // return remove index after used or ignore
-		_, err = chain.instance.Indexes().DropOne(chain.Context, fmt.Sprintf("%s_%s", key, strconv.Itoa(value)))
+		_, err = chain.Instance.Indexes().DropOne(chain.Context, fmt.Sprintf("%s_%s", key, strconv.Itoa(value)))
 		if err != nil {
 			panic(err)
 		}
@@ -188,7 +188,7 @@ func (chain _OrmChain) CreateIndex(key string, value int) func() {
 }
 
 func (chain _OrmChain) DropIndex(name string) {
-	_, err := chain.instance.Indexes().DropOne(chain.Context, name)
+	_, err := chain.Instance.Indexes().DropOne(chain.Context, name)
 	if err != nil {
 		panic(err)
 	}
@@ -352,7 +352,7 @@ func (chain _OrmChain) Decode(output interface{}) _OrmChain {
 		})
 	}
 
-	result, err := chain.instance.Aggregate(chain.Context, chain.Pipeline, &options.AggregateOptions{AllowDiskUse: &chain.allowDiskUse})
+	result, err := chain.Instance.Aggregate(chain.Context, chain.Pipeline, &options.AggregateOptions{AllowDiskUse: &chain.allowDiskUse})
 	if err != nil {
 		panic(err)
 	}
@@ -375,7 +375,7 @@ func New(ctx context.Context, model string) OrmInterface {
 	var orm OrmInterface = _OrmChain{
 		Model:    model,
 		Context:  ctx,
-		instance: MongoInstance.Collection(model),
+		Instance: MongoInstance.Collection(model),
 	}
 	return orm
 }

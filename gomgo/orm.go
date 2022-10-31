@@ -45,6 +45,7 @@ type OrmInterface interface {
 	Unset(...string) _OrmChain // Remove field from item
 	Match(bson.M) _OrmChain
 	AllowDiskUse(bool) _OrmChain
+	Instance() *mongo.Collection
 }
 
 type _AutoBindResult struct {
@@ -57,7 +58,7 @@ type _OrmChain struct {
 	Model          string
 	Context        context.Context
 	errors         error
-	Instance       *mongo.Collection
+	instance       *mongo.Collection
 	autoBindQuery  bool
 	autoBindResult _AutoBindResult
 	projections    []string
@@ -68,6 +69,10 @@ type _OrmChain struct {
 	limit          int
 	skip           int
 	allowDiskUse   bool
+}
+
+func (chain _OrmChain) Instance() *mongo.Collection {
+	return chain.instance
 }
 
 func (chain _OrmChain) AllowDiskUse(value bool) _OrmChain {
@@ -174,13 +179,13 @@ func (chain _OrmChain) CreateIndex(key string, value int) func() {
 		Keys: bson.M{key: value},
 	}
 
-	_, err := chain.Instance.Indexes().CreateOne(chain.Context, indexModel) // Create Index
+	_, err := chain.instance.Indexes().CreateOne(chain.Context, indexModel) // Create Index
 	if err != nil {
 		panic(err)
 	}
 
 	return func() { // return remove index after used or ignore
-		_, err = chain.Instance.Indexes().DropOne(chain.Context, fmt.Sprintf("%s_%s", key, strconv.Itoa(value)))
+		_, err = chain.instance.Indexes().DropOne(chain.Context, fmt.Sprintf("%s_%s", key, strconv.Itoa(value)))
 		if err != nil {
 			panic(err)
 		}
@@ -188,7 +193,7 @@ func (chain _OrmChain) CreateIndex(key string, value int) func() {
 }
 
 func (chain _OrmChain) DropIndex(name string) {
-	_, err := chain.Instance.Indexes().DropOne(chain.Context, name)
+	_, err := chain.instance.Indexes().DropOne(chain.Context, name)
 	if err != nil {
 		panic(err)
 	}
@@ -352,7 +357,7 @@ func (chain _OrmChain) Decode(output interface{}) _OrmChain {
 		})
 	}
 
-	result, err := chain.Instance.Aggregate(chain.Context, chain.Pipeline, &options.AggregateOptions{AllowDiskUse: &chain.allowDiskUse})
+	result, err := chain.instance.Aggregate(chain.Context, chain.Pipeline, &options.AggregateOptions{AllowDiskUse: &chain.allowDiskUse})
 	if err != nil {
 		panic(err)
 	}
@@ -375,7 +380,7 @@ func New(ctx context.Context, model string) OrmInterface {
 	var orm OrmInterface = _OrmChain{
 		Model:    model,
 		Context:  ctx,
-		Instance: MongoInstance.Collection(model),
+		instance: MongoInstance.Collection(model),
 	}
 	return orm
 }

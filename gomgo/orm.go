@@ -2,6 +2,7 @@ package gomgo
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
@@ -19,6 +20,7 @@ var (
 	NOTFOUND   = "notfound"
 	TYPE_BEGIN = "BEGIN"
 	TYPE_END   = "END"
+	FOUND      = "found"
 )
 
 type LookupOption struct {
@@ -33,11 +35,12 @@ type LookupOption struct {
 
 type OrmInterface interface {
 	FindById(primitive.ObjectID) _OrmChain
+	FindOne(bson.M) _OrmChain
 	Decode(interface{}) _OrmChain
-	ErrorMessage(string)
+	ErrorIfNotExist(string)
 	Select(...string) _OrmChain
 	Lookup(*LookupOption) _OrmChain
-	AddPipeline(bson.M) _OrmChain
+	Find([]bson.M) _OrmChain
 	CreateIndex(string, int) func()
 	DropIndex(string)
 	AutoBindQuery(*BindConfig) _OrmChain
@@ -46,6 +49,7 @@ type OrmInterface interface {
 	Match(bson.M) _OrmChain
 	AllowDiskUse(bool) _OrmChain
 	Instance() *mongo.Collection
+	ErrorIfExist(string)
 }
 
 type _AutoBindResult struct {
@@ -69,6 +73,7 @@ type _OrmChain struct {
 	limit          int
 	skip           int
 	allowDiskUse   bool
+	findOne        bool
 }
 
 func (chain _OrmChain) Instance() *mongo.Collection {
@@ -86,14 +91,29 @@ func (chain _OrmChain) Unset(field ...string) _OrmChain {
 }
 
 func (chain _OrmChain) FindById(id primitive.ObjectID) _OrmChain {
+	chain.findOne = true
 	chain.Pipeline = append(chain.Pipeline, bson.M{"$match": bson.M{"_id": id}}) // append Pipeline
 	return chain
 }
 
-func (chain _OrmChain) ErrorMessage(message string) {
+func (chain _OrmChain) FindOne(filter bson.M) _OrmChain {
+	chain.findOne = true
+	chain.Pipeline = append(chain.Pipeline, bson.M{"$match": filter}) // append Pipeline
+	return chain
+}
+
+func (chain _OrmChain) ErrorIfExist(message string) {
+	if chain.errors != nil && chain.errors.Error() == FOUND {
+		panic(message)
+	} else if chain.errors != nil && chain.errors.Error() != NOTFOUND {
+		panic(chain.errors.Error())
+	}
+}
+
+func (chain _OrmChain) ErrorIfNotExist(message string) {
 	if chain.errors != nil && chain.errors.Error() == NOTFOUND {
 		panic(message)
-	} else if chain.errors != nil {
+	} else if chain.errors != nil && chain.errors.Error() != FOUND {
 		panic(chain.errors.Error())
 	}
 }
@@ -148,7 +168,7 @@ func (chain _OrmChain) Lookup(opts *LookupOption) _OrmChain {
 	return chain
 }
 
-func (chain _OrmChain) AddPipeline(pipeline bson.M) _OrmChain {
+func (chain _OrmChain) Find(pipeline []bson.M) _OrmChain {
 	chain.Pipeline = append(chain.Pipeline, pipeline)
 	return chain
 }
@@ -324,7 +344,7 @@ func (chain _OrmChain) AutoBindResult() interface{} {
 	return chain.autoBindResult
 }
 
-func (chain _OrmChain) Decode(output interface{}) _OrmChain {
+func (chain _OrmChain) Decode(output any) _OrmChain {
 	// Perform projection field
 	if len(chain.projections) > 0 {
 		projection := map[string]int{}
@@ -332,6 +352,28 @@ func (chain _OrmChain) Decode(output interface{}) _OrmChain {
 			projection[v] = 1
 		}
 		chain.Pipeline = append(chain.Pipeline, bson.M{"$project": projection})
+	}
+
+	if chain.findOne {
+		var _output []bson.M
+		result, err := chain.instance.Aggregate(chain.Context, chain.Pipeline, &options.AggregateOptions{AllowDiskUse: &chain.allowDiskUse})
+		if err != nil {
+			panic(err)
+		}
+
+		err = result.All(chain.Context, &_output)
+		if err != nil {
+			panic(err)
+		}
+
+		if len(_output) < 1 {
+			chain.errors = errors.New(NOTFOUND)
+		} else {
+			chain.errors = errors.New(FOUND)
+			marsh, _ := json.Marshal(_output[0])
+			json.Unmarshal(marsh, &output)
+		}
+		return chain
 	}
 
 	// Perform paginate pipeline

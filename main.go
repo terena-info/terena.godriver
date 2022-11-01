@@ -1,7 +1,17 @@
 package main
 
 import (
+	"context"
+	"fmt"
+	"time"
+
 	"github.com/gin-gonic/gin"
+	"github.com/terena-info/terena.godriver/gomgo"
+	"github.com/terena-info/terena.godriver/middlewares"
+	"github.com/terena-info/terena.godriver/response"
+	"github.com/terena-info/terena.godriver/utils"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo/readpref"
 )
 
 type PaymenMethod struct {
@@ -17,26 +27,41 @@ func SanitizeRequest() gin.HandlerFunc {
 	}
 }
 
+type User struct {
+	Email       string `validate:"required,email" json:"email" form:"email" bson:"email"`
+	Password    string `json:"password" form:"password" bson:"password"`
+	IsVerified  *bool  `json:"is_verified,omitempty" form:"is_verified" bson:"is_verified,omitempty"`
+	ProfileIcon string `json:"profile_icon" form:"profile_icon" bson:"profile_icon"`
+}
+
 func main() {
 
-	// app := gin.Default()
+	app := gin.Default()
 
-	// app.Use(gin.CustomRecovery(middlewares.ErrorRecovery))
+	connector := gomgo.ConnectionOption{
+		Host:     "mongodb+srv://bank:Bank211998Tsc_@cluster0.ih5kz.mongodb.net/?retryWrites=true&w=majority",
+		Database: "terena_core",
+		ReadRef:  readpref.Primary(),
+		Timeout:  time.Second * 10,
+		Context:  context.Background(),
+	}
+	connector.Connect().WithMessage(fmt.Sprintf("Database: %s", "terena_core"))
+
+	app.Use(gin.CustomRecovery(middlewares.ErrorRecovery))
 
 	// app.Use(SanitizeRequest())
 
-	// app.POST("/", func(ctx *gin.Context) {
-	// 	res := response.New(ctx)
+	app.GET("/", func(ctx *gin.Context) {
+		res := response.New(ctx)
 
-	// 	var admin PaymenMethod
-	// 	ctx.ShouldBind(&admin)
+		var user User
+		query := gomgo.New(context.TODO(), "users")
 
-	// 	validate := binding.New(admin)
-	// 	validate.ValidateStruct().RunError(&binding.RunErrorOption{})
+		query.FindOne(bson.M{"_id": utils.StringToObjectId("6361384a3ad16e5cc79ede23")}).Decode(&user).ErrorIfExist("NOT EXISY DER")
 
-	// 	res.Json(response.H{})
-	// })
+		res.Json(response.H{Data: user})
+	})
 
-	// app.Run(":9009")
+	app.Run(":9009")
 
 }

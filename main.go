@@ -2,9 +2,6 @@ package main
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/terena-info/terena.godriver/binding"
-	"github.com/terena-info/terena.godriver/middlewares"
-	"github.com/terena-info/terena.godriver/response"
 )
 
 type PaymenMethod struct {
@@ -21,23 +18,24 @@ func SanitizeRequest() gin.HandlerFunc {
 }
 
 func main() {
-	app := gin.Default()
 
-	app.Use(gin.CustomRecovery(middlewares.ErrorRecovery))
+	// app := gin.Default()
 
-	app.Use(SanitizeRequest())
+	// app.Use(gin.CustomRecovery(middlewares.ErrorRecovery))
 
-	app.POST("/", func(ctx *gin.Context) {
-		res := response.New(ctx)
+	// app.Use(SanitizeRequest())
 
-		var admin PaymenMethod
-		ctx.ShouldBind(&admin)
+	// app.POST("/", func(ctx *gin.Context) {
+	// 	res := response.New(ctx)
 
-		validate := binding.New(admin)
-		validate.ValidateStruct().RunError(&binding.RunErrorOption{})
+	// 	var admin PaymenMethod
+	// 	ctx.ShouldBind(&admin)
 
-		res.Json(response.H{})
-	})
+	// 	validate := binding.New(admin)
+	// 	validate.ValidateStruct().RunError(&binding.RunErrorOption{})
 
-	app.Run(":9009")
+	// 	res.Json(response.H{})
+	// })
+
+	// app.Run(":9009")
 }

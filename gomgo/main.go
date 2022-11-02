@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
@@ -15,12 +16,20 @@ var (
 	MongoInstance *mongo.Database
 )
 
+type DefaultField struct {
+	ID        primitive.ObjectID `json:"_id" bson:"_id"`
+	IsActive  bool               `json:"is_active" bson:"is_active"`
+	CreatedAt primitive.DateTime `json:"created_at" bson:"created_at"`
+	UpdatedAt primitive.DateTime `json:"updated_at" bson:"updated_at"`
+}
+
 type ConnectionOption struct {
-	Host     string
-	Database string
-	Timeout  time.Duration
-	ReadRef  *readpref.ReadPref
-	Context  context.Context
+	Host          string
+	Database      string
+	Timeout       time.Duration
+	ReadRef       *readpref.ReadPref
+	Context       context.Context
+	UseSoftDelete bool
 }
 
 func (opts *ConnectionOption) Connect(clientOpts ...*options.ClientOptions) *ConnectionOption {

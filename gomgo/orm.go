@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
@@ -33,9 +34,51 @@ type LookupOption struct {
 	Many         bool
 }
 
+type _CrudDecodeOption struct {
+	Id        primitive.ObjectID
+	Ids       []interface{}
+	Condition interface{} // For update result condition
+	Instance  *mongo.Collection
+	Context   context.Context
+	Output    interface{}
+}
+
+func (opts _CrudDecodeOption) Decode() {
+	// Perform ID decode
+	if opts.Id.Hex() != "" {
+		err := opts.Instance.FindOne(opts.Context, bson.M{"_id": opts.Id}).Decode(opts.Output)
+		if err != nil {
+			panic(err)
+		}
+		return
+	}
+
+	if len(opts.Ids) > 0 {
+		result, err := opts.Instance.Find(opts.Context, bson.M{"_id": bson.M{"$in": opts.Ids}})
+		if err != nil {
+			panic(err)
+		}
+		result.All(opts.Context, opts.Output)
+		return
+	}
+
+	// perform confition decode
+}
+
 type OrmInterface interface {
 	FindById(primitive.ObjectID) _OrmChain
 	FindOne(bson.M) _OrmChain
+	New(interface{}) _OrmChain
+	Save() _CrudDecodeOption
+	Create(interface{}) _CrudDecodeOption
+	InsertMany(...interface{}) _CrudDecodeOption
+	// Update(bson.M, interface{}) _CrudDecodeOption
+	// UpdateMany(bson.M, interface{}) _CrudDecodeOption
+	// Delete(bson.M)
+	// DeleteMany(bson.M)
+	// FindByIdAndUpdate(primitive.ObjectID, interface{}) _CrudDecodeOption
+	// FindByIdAndDelete(primitive.ObjectID)
+
 	Decode(interface{}) _OrmChain
 	ErrorIfNotExist(string)
 	Select(...string) _OrmChain
@@ -50,6 +93,7 @@ type OrmInterface interface {
 	AllowDiskUse(bool) _OrmChain
 	Instance() *mongo.Collection
 	ErrorIfExist(string)
+	Exist() bool // Return exist or not as boolean
 }
 
 type _AutoBindResult struct {
@@ -74,6 +118,71 @@ type _OrmChain struct {
 	skip           int
 	allowDiskUse   bool
 	findOne        bool
+	createBody     interface{}
+}
+
+func (chain _OrmChain) InsertMany(docs ...interface{}) _CrudDecodeOption {
+	for i, _ := range docs {
+		println(docs[i])
+	}
+
+	result, err := chain.instance.InsertMany(chain.Context, docs)
+	if err != nil {
+		panic(err)
+	}
+
+	next := _CrudDecodeOption{
+		Ids:       result.InsertedIDs,
+		Instance:  chain.instance,
+		Condition: chain.Context,
+	}
+	return next
+}
+
+func Bulk(m any) {
+	var inInterface map[string]interface{}
+	inrec, _ := json.Marshal(m)
+
+	json.Unmarshal(inrec, &inInterface)
+	inInterface["_id"] = primitive.NewObjectID()
+	inInterface["created_at"] = primitive.NewDateTimeFromTime(time.Now())
+	inInterface["updated_at"] = primitive.NewDateTimeFromTime(time.Now())
+	inInterface["is_active"] = true
+	re, _ := json.Marshal(inInterface)
+	json.Unmarshal(re, &m)
+}
+
+func (chain _OrmChain) New(m any) _OrmChain {
+	var inInterface map[string]interface{}
+	inrec, _ := json.Marshal(m)
+	json.Unmarshal(inrec, &inInterface)
+	inInterface["_id"] = primitive.NewObjectID()
+	inInterface["created_at"] = primitive.NewDateTimeFromTime(time.Now())
+	inInterface["updated_at"] = primitive.NewDateTimeFromTime(time.Now())
+	inInterface["is_active"] = true
+	re, _ := json.Marshal(inInterface)
+	json.Unmarshal(re, &m)
+	chain.createBody = m
+	return chain
+}
+
+func (chain _OrmChain) Create(dosc interface{}) _CrudDecodeOption {
+	return chain.New(dosc).Save()
+}
+
+func (chain _OrmChain) Save() _CrudDecodeOption {
+	result, err := chain.instance.InsertOne(chain.Context, chain.createBody)
+	if err != nil {
+		panic(err)
+	}
+
+	next := _CrudDecodeOption{
+		Id:        result.InsertedID.(primitive.ObjectID),
+		Instance:  chain.instance,
+		Condition: chain.Context,
+		Output:    chain.createBody,
+	}
+	return next
 }
 
 func (chain _OrmChain) Instance() *mongo.Collection {
@@ -340,6 +449,10 @@ func (chain _OrmChain) AutoBindQuery(bindConfig *BindConfig) _OrmChain {
 	return chain
 }
 
+func (chain _OrmChain) Exist() bool {
+	return chain.errors.Error() == FOUND
+}
+
 func (chain _OrmChain) AutoBindResult() interface{} {
 	return chain.autoBindResult
 }
@@ -413,6 +526,8 @@ func (chain _OrmChain) Decode(output any) _OrmChain {
 
 	if rs == "&[]" {
 		chain.errors = errors.New(NOTFOUND)
+	} else {
+		chain.errors = errors.New(FOUND)
 	}
 
 	return chain

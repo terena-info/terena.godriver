@@ -29,6 +29,7 @@ func ErrorRecovery(c *gin.Context, err interface{}) {
 		}
 
 		c.JSON(errorHttpStatusCode, gin.H{"message": errMessage, "errorCode": errorCode})
+		return
 	}
-	c.Abort()
+	c.AbortWithStatusJSON(500, gin.H{"message": "Internal server error", "errorCode": "5000"})
 }

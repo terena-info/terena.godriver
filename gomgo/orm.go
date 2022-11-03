@@ -44,21 +44,23 @@ type _CrudDecodeOption struct {
 }
 
 func (opts _CrudDecodeOption) Decode() {
+
+	if len(opts.Ids) > 0 {
+		fmt.Println(opts.Ids)
+		result, err := opts.Instance.Find(opts.Context, bson.M{"_id": bson.M{"$in": opts.Ids}})
+		if err != nil {
+			panic(err)
+		}
+		result.All(opts.Context, opts.Output)
+		return
+	}
+
 	// Perform ID decode
 	if opts.Id.Hex() != "" {
 		err := opts.Instance.FindOne(opts.Context, bson.M{"_id": opts.Id}).Decode(opts.Output)
 		if err != nil {
 			panic(err)
 		}
-		return
-	}
-
-	if len(opts.Ids) > 0 {
-		result, err := opts.Instance.Find(opts.Context, bson.M{"_id": bson.M{"$in": opts.Ids}})
-		if err != nil {
-			panic(err)
-		}
-		result.All(opts.Context, opts.Output)
 		return
 	}
 
@@ -71,7 +73,7 @@ type OrmInterface interface {
 	New(interface{}) _OrmChain
 	Save() _CrudDecodeOption
 	Create(interface{}) _CrudDecodeOption
-	InsertMany(...interface{}) _CrudDecodeOption
+	InsertMany([]interface{}) _CrudDecodeOption
 	// Update(bson.M, interface{}) _CrudDecodeOption
 	// UpdateMany(bson.M, interface{}) _CrudDecodeOption
 	// Delete(bson.M)
@@ -121,9 +123,9 @@ type _OrmChain struct {
 	createBody     interface{}
 }
 
-func (chain _OrmChain) InsertMany(docs ...interface{}) _CrudDecodeOption {
-	for i, _ := range docs {
-		println(docs[i])
+func (chain _OrmChain) InsertMany(docs []interface{}) _CrudDecodeOption {
+	for i := range docs {
+		Bulk(&docs[i])
 	}
 
 	result, err := chain.instance.InsertMany(chain.Context, docs)

@@ -53,7 +53,6 @@ func main() {
 	app.GET("/", func(ctx *gin.Context) {
 		res := response.New(ctx)
 
-		var user []interface{}
 		hunter := []User{
 			{
 				Email:    "asdasdasd111",
@@ -64,22 +63,22 @@ func main() {
 				Password: "asdasdasdasdasd",
 			},
 		}
-
-		for _, v := range hunter {
-			user = append(user, v)
+		var user []interface{}
+		for i, v := range hunter {
+			user[i] = v
 		}
 
-		// query := gomgo.New(context.TODO(), "users")
+		query := gomgo.New(context.TODO(), "users")
 		// user[0].ID = primitive.NewObjectID()
 
 		// user[1].Email = "asdasdasd 1"
 		// user[1].Password = "asdasdasd 1"
 		// user[1].ID = primitive.NewObjectID()
 
-		buldData(hunter)
+		buldData(hunter, len(hunter))
 
 		// var result User
-		// query.InsertMany(user).Decode()
+		query.InsertMany(user).Decode()
 
 		// exist := query.FindOne(bson.M{"_id": utils.StringToObjectId("636235a775298f01db33fe12")}).Decode(&user).Exist()
 		// if !exist {
@@ -93,10 +92,9 @@ func main() {
 
 }
 
-func buldData(a []interface{}) {
-	b := make([]interface{}, len(a))
+func buldData(a interface{}, length int) {
+	b := make([]interface{}, length)
 	for i := range a {
 		b[i] = a[i]
 	}
-
 }

@@ -9,6 +9,8 @@ import (
 	"github.com/terena-info/terena.godriver/gomgo"
 	"github.com/terena-info/terena.godriver/middlewares"
 	"github.com/terena-info/terena.godriver/response"
+	"github.com/terena-info/terena.godriver/utils"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
 )
 
@@ -29,8 +31,12 @@ type User struct {
 	gomgo.DefaultField `bson:",inline"`
 	Email              string `validate:"required,email" json:"email" form:"email" bson:"email"`
 	Password           string `json:"password" form:"password" bson:"password"`
-	IsVerified         bool   `json:"is_verified,omitempty" form:"is_verified" bson:"is_verified,omitempty"`
+	IsVerified         bool   `json:"is_verified" form:"is_verified" bson:"is_verified,omitempty"`
 	ProfileIcon        string `json:"profile_icon" form:"profile_icon" bson:"profile_icon"`
+}
+
+func Users() gomgo.OrmInterface {
+	return gomgo.New(context.TODO(), "users")
 }
 
 func main() {
@@ -53,50 +59,40 @@ func main() {
 	app.GET("/", func(ctx *gin.Context) {
 		res := response.New(ctx)
 
-		var user []interface{}
-		hunter := []User{
-			{
-				Email:    "asdasdasd111",
-				Password: "asdasdasdasdasd",
-			},
-			{
-				Email:    "asdasdasd111",
-				Password: "asdasdasdasdasd",
-			},
-		}
+		// data := NewMany(hunter)
 
-		for _, v := range hunter {
-			user = append(user, v)
-		}
+		// fmt.Println("HERE LONG")
 
-		// query := gomgo.New(context.TODO(), "users")
 		// user[0].ID = primitive.NewObjectID()
 
 		// user[1].Email = "asdasdasd 1"
 		// user[1].Password = "asdasdasd 1"
 		// user[1].ID = primitive.NewObjectID()
 
-		buldData(hunter)
+		// test create single document
+		// var single User
+		// single.Email = "single@gmail.com"
+		// single.Password = "123123123"
+		// query.Create(&single).Decode()
 
-		// var result User
-		// query.InsertMany(user).Decode()
+		// query.InsertMany(hunter).Decode()
 
 		// exist := query.FindOne(bson.M{"_id": utils.StringToObjectId("636235a775298f01db33fe12")}).Decode(&user).Exist()
 		// if !exist {
 		// 	gerrors.Panic(400, gerrors.E{Message: "NOT EXISTED DER"})
 		// }
 
-		res.Json(response.H{Data: user})
+		userOne := User{
+			Email:    "asldflasflaasdfsadfasdfskfksa",
+			Password: "23423423489234789",
+		}
+		updateId := utils.StringToObjectId("63730d1e902211e157bc7c35")
+		var result map[string]interface{}
+		Users().UpdateOne(bson.M{"_id": updateId}, userOne).Decode(&result)
+		// query.Create(&userOne)
+		res.Json(response.H{Data: result})
 	})
 
 	app.Run(":9009")
-
-}
-
-func buldData(a []interface{}) {
-	b := make([]interface{}, len(a))
-	for i := range a {
-		b[i] = a[i]
-	}
 
 }

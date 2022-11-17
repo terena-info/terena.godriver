@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/terena-info/terena.godriver/utils"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -33,49 +34,15 @@ type LookupOption struct {
 	Unset        []string
 	Many         bool
 }
-
-type _CrudDecodeOption struct {
-	Id        primitive.ObjectID
-	Ids       []interface{}
-	Condition interface{} // For update result condition
-	Instance  *mongo.Collection
-	Context   context.Context
-	Output    interface{}
-}
-
-func (opts _CrudDecodeOption) Decode() {
-
-	if len(opts.Ids) > 0 {
-		fmt.Println(opts.Ids)
-		result, err := opts.Instance.Find(opts.Context, bson.M{"_id": bson.M{"$in": opts.Ids}})
-		if err != nil {
-			panic(err)
-		}
-		result.All(opts.Context, opts.Output)
-		return
-	}
-
-	// Perform ID decode
-	if opts.Id.Hex() != "" {
-		err := opts.Instance.FindOne(opts.Context, bson.M{"_id": opts.Id}).Decode(opts.Output)
-		if err != nil {
-			panic(err)
-		}
-		return
-	}
-
-	// perform confition decode
-}
-
 type OrmInterface interface {
 	FindById(primitive.ObjectID) _OrmChain
-	FindOne(bson.M) _OrmChain
+	FindOne(interface{}) _OrmChain
 	New(interface{}) _OrmChain
-	Save() _CrudDecodeOption
-	Create(interface{}) _CrudDecodeOption
-	InsertMany([]interface{}) _CrudDecodeOption
-	// Update(bson.M, interface{}) _CrudDecodeOption
-	// UpdateMany(bson.M, interface{}) _CrudDecodeOption
+	Save() _OrmChain
+	Create(interface{}) _OrmChain
+	UpdateOne(interface{}, interface{}) *mongo.SingleResult
+	UpdateByID(primitive.ObjectID, interface{}) _OrmChain
+	UpdateMany(interface{}, interface{}) _OrmChain
 	// Delete(bson.M)
 	// DeleteMany(bson.M)
 	// FindByIdAndUpdate(primitive.ObjectID, interface{}) _CrudDecodeOption
@@ -85,7 +52,8 @@ type OrmInterface interface {
 	ErrorIfNotExist(string)
 	Select(...string) _OrmChain
 	Lookup(*LookupOption) _OrmChain
-	Find([]bson.M) _OrmChain
+	Find(interface{}) _OrmChain
+	Aggregate([]bson.M) _OrmChain
 	CreateIndex(string, int) func()
 	DropIndex(string)
 	AutoBindQuery(*BindConfig) _OrmChain
@@ -121,37 +89,41 @@ type _OrmChain struct {
 	allowDiskUse   bool
 	findOne        bool
 	createBody     interface{}
+	createBodyMany []interface{}
 }
 
-func (chain _OrmChain) InsertMany(docs []interface{}) _CrudDecodeOption {
-	for i := range docs {
-		Bulk(&docs[i])
-	}
-
-	result, err := chain.instance.InsertMany(chain.Context, docs)
+func (chain _OrmChain) UpdateMany(filter interface{}, docs interface{}) _OrmChain {
+	newDocs := utils.BindUpdate(docs)
+	update := bson.D{{"$set", newDocs}}
+	// update := bson.D{{"$set", newDocs}}
+	_, err := chain.instance.UpdateMany(chain.Context, filter, update)
 	if err != nil {
 		panic(err)
 	}
-
-	next := _CrudDecodeOption{
-		Ids:       result.InsertedIDs,
-		Instance:  chain.instance,
-		Condition: chain.Context,
-	}
+	next := chain.Find(filter)
 	return next
 }
 
-func Bulk(m any) {
-	var inInterface map[string]interface{}
-	inrec, _ := json.Marshal(m)
+func (chain _OrmChain) UpdateByID(ID primitive.ObjectID, docs interface{}) _OrmChain {
+	newDocs := utils.BindUpdate(docs)
+	update := []bson.E{{Key: "$set", Value: newDocs}}
+	// update := bson.D{{"$set", newDocs}}
+	_, err := chain.instance.UpdateByID(chain.Context, ID, update)
+	if err != nil {
+		panic(err)
+	}
+	next := chain.FindOne(bson.M{"_id": ID})
+	return next
+}
 
-	json.Unmarshal(inrec, &inInterface)
-	inInterface["_id"] = primitive.NewObjectID()
-	inInterface["created_at"] = primitive.NewDateTimeFromTime(time.Now())
-	inInterface["updated_at"] = primitive.NewDateTimeFromTime(time.Now())
-	inInterface["is_active"] = true
-	re, _ := json.Marshal(inInterface)
-	json.Unmarshal(re, &m)
+func (chain _OrmChain) UpdateOne(filter interface{}, docs interface{}) *mongo.SingleResult {
+	newDocs := utils.BindUpdate(docs)
+	single := chain.instance.FindOneAndUpdate(chain.Context, filter, bson.D{{"$set", newDocs}})
+	if single.Err() != nil {
+		panic(single.Err())
+	}
+	// next := chain.FindOne(bson.M{"_id": output["_id"].(primitive.ObjectID)})
+	return single
 }
 
 func (chain _OrmChain) New(m any) _OrmChain {
@@ -168,22 +140,17 @@ func (chain _OrmChain) New(m any) _OrmChain {
 	return chain
 }
 
-func (chain _OrmChain) Create(dosc interface{}) _CrudDecodeOption {
+func (chain _OrmChain) Create(dosc interface{}) _OrmChain {
 	return chain.New(dosc).Save()
 }
 
-func (chain _OrmChain) Save() _CrudDecodeOption {
+func (chain _OrmChain) Save() _OrmChain {
 	result, err := chain.instance.InsertOne(chain.Context, chain.createBody)
 	if err != nil {
 		panic(err)
 	}
 
-	next := _CrudDecodeOption{
-		Id:        result.InsertedID.(primitive.ObjectID),
-		Instance:  chain.instance,
-		Condition: chain.Context,
-		Output:    chain.createBody,
-	}
+	next := chain.FindOne(bson.M{"_id": result.InsertedID.(primitive.ObjectID)})
 	return next
 }
 
@@ -207,7 +174,7 @@ func (chain _OrmChain) FindById(id primitive.ObjectID) _OrmChain {
 	return chain
 }
 
-func (chain _OrmChain) FindOne(filter bson.M) _OrmChain {
+func (chain _OrmChain) FindOne(filter interface{}) _OrmChain {
 	chain.findOne = true
 	chain.Pipeline = append(chain.Pipeline, bson.M{"$match": filter}) // append Pipeline
 	return chain
@@ -279,8 +246,13 @@ func (chain _OrmChain) Lookup(opts *LookupOption) _OrmChain {
 	return chain
 }
 
-func (chain _OrmChain) Find(pipeline []bson.M) _OrmChain {
+func (chain _OrmChain) Aggregate(pipeline []bson.M) _OrmChain {
 	chain.Pipeline = append(chain.Pipeline, pipeline)
+	return chain
+}
+
+func (chain _OrmChain) Find(pipeline interface{}) _OrmChain {
+	chain.Pipeline = append(chain.Pipeline, bson.M{"$match": pipeline})
 	return chain
 }
 

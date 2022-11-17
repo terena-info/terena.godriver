@@ -59,24 +59,6 @@ func main() {
 	app.GET("/", func(ctx *gin.Context) {
 		res := response.New(ctx)
 
-		// data := NewMany(hunter)
-
-		// fmt.Println("HERE LONG")
-
-		// user[0].ID = primitive.NewObjectID()
-
-		// user[1].Email = "asdasdasd 1"
-		// user[1].Password = "asdasdasd 1"
-		// user[1].ID = primitive.NewObjectID()
-
-		// test create single document
-		// var single User
-		// single.Email = "single@gmail.com"
-		// single.Password = "123123123"
-		// query.Create(&single).Decode()
-
-		// query.InsertMany(hunter).Decode()
-
 		// exist := query.FindOne(bson.M{"_id": utils.StringToObjectId("636235a775298f01db33fe12")}).Decode(&user).Exist()
 		// if !exist {
 		// 	gerrors.Panic(400, gerrors.E{Message: "NOT EXISTED DER"})
@@ -94,5 +76,4 @@ func main() {
 	})
 
 	app.Run(":9009")
-
 }

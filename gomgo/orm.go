@@ -43,11 +43,8 @@ type OrmInterface interface {
 	UpdateOne(interface{}, interface{}) *mongo.SingleResult
 	UpdateByID(primitive.ObjectID, interface{}) _OrmChain
 	UpdateMany(interface{}, interface{}) _OrmChain
-	// Delete(bson.M)
-	// DeleteMany(bson.M)
-	// FindByIdAndUpdate(primitive.ObjectID, interface{}) _CrudDecodeOption
-	// FindByIdAndDelete(primitive.ObjectID)
-
+	Delete(bson.M)
+	DeleteMany(bson.M)
 	Decode(interface{}) _OrmChain
 	ErrorIfNotExist(string)
 	Select(...string) _OrmChain
@@ -92,10 +89,23 @@ type _OrmChain struct {
 	createBodyMany []interface{}
 }
 
+func (chain _OrmChain) DeleteMany(filter bson.M) {
+	_, err := chain.instance.DeleteMany(chain.Context, filter)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func (chain _OrmChain) Delete(filter bson.M) {
+	_, err := chain.instance.DeleteOne(chain.Context, filter)
+	if err != nil {
+		panic(err)
+	}
+}
+
 func (chain _OrmChain) UpdateMany(filter interface{}, docs interface{}) _OrmChain {
 	newDocs := utils.BindUpdate(docs)
 	update := bson.D{{"$set", newDocs}}
-	// update := bson.D{{"$set", newDocs}}
 	_, err := chain.instance.UpdateMany(chain.Context, filter, update)
 	if err != nil {
 		panic(err)
@@ -107,7 +117,6 @@ func (chain _OrmChain) UpdateMany(filter interface{}, docs interface{}) _OrmChai
 func (chain _OrmChain) UpdateByID(ID primitive.ObjectID, docs interface{}) _OrmChain {
 	newDocs := utils.BindUpdate(docs)
 	update := []bson.E{{Key: "$set", Value: newDocs}}
-	// update := bson.D{{"$set", newDocs}}
 	_, err := chain.instance.UpdateByID(chain.Context, ID, update)
 	if err != nil {
 		panic(err)
@@ -122,7 +131,6 @@ func (chain _OrmChain) UpdateOne(filter interface{}, docs interface{}) *mongo.Si
 	if single.Err() != nil {
 		panic(single.Err())
 	}
-	// next := chain.FindOne(bson.M{"_id": output["_id"].(primitive.ObjectID)})
 	return single
 }
 

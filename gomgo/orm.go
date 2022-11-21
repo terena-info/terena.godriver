@@ -116,7 +116,7 @@ func (chain _OrmChain) UpdateMany(filter interface{}, docs interface{}) _OrmChai
 
 func (chain _OrmChain) UpdateByID(ID primitive.ObjectID, docs interface{}) _OrmChain {
 	newDocs := utils.BindUpdate(docs)
-	update := []bson.E{{Key: "$set", Value: newDocs}}
+	update := bson.D{{"$set", newDocs}}
 	_, err := chain.instance.UpdateByID(chain.Context, ID, update)
 	if err != nil {
 		panic(err)

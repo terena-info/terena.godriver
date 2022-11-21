@@ -18,40 +18,40 @@ func Panic(statusCode int, p E) {
 }
 
 type Throw struct {
-	Message   string
-	ErrorCode string
+	M    string
+	Code string
 }
 
-func (e E) BadRequest() {
-	if e.ErrorCode == "" {
-		e.ErrorCode = "4000"
+func (e Throw) BadRequest() {
+	if e.Code == "" {
+		e.Code = "4000"
 	}
-	if e.Message == "" {
-		e.Message = "Bad request"
+	if e.M == "" {
+		e.M = "Bad request"
 	}
-	panic(fmt.Sprintf("%s-%s::%s", strconv.Itoa(400), e.ErrorCode, e.Message))
+	panic(fmt.Sprintf("%s-%s::%s", strconv.Itoa(400), e.Code, e.M))
 }
 
-func (e E) Unauthorized() {
-	if e.ErrorCode == "" {
-		e.ErrorCode = "4001"
+func (e Throw) Unauthorized() {
+	if e.Code == "" {
+		e.Code = "4001"
 	}
-	if e.Message == "" {
-		e.Message = "Unauthorized"
+	if e.M == "" {
+		e.M = "Unauthorized"
 	}
-	panic(fmt.Sprintf("%s-%s::%s", strconv.Itoa(400), e.ErrorCode, e.Message))
+	panic(fmt.Sprintf("%s-%s::%s", strconv.Itoa(400), e.Code, e.M))
 }
 
-func (e E) Custom() {
-	panic(fmt.Sprintf("%s-%s::%s", strconv.Itoa(400), e.ErrorCode, e.Message))
+func (e Throw) Custom() {
+	panic(fmt.Sprintf("%s-%s::%s", strconv.Itoa(400), e.Code, e.M))
 }
 
-func (e E) InteralServerError() {
-	if e.ErrorCode == "" {
-		e.ErrorCode = "5000"
+func (e Throw) InteralServerError() {
+	if e.Code == "" {
+		e.Code = "5000"
 	}
-	if e.Message == "" {
-		e.Message = "Interal server error"
+	if e.M == "" {
+		e.M = "Interal server error"
 	}
-	panic(fmt.Sprintf("%s-%s::%s", strconv.Itoa(400), e.ErrorCode, e.Message))
+	panic(fmt.Sprintf("%s-%s::%s", strconv.Itoa(400), e.Code, e.M))
 }
